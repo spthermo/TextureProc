@@ -65,7 +65,7 @@ EXPORT bool Bbox_BGRA(const byte* input, int width, int height, byte* imgResData
 {
 	bool success = false;
 	std::ofstream log("mylog.txt");
-
+	log << "0" << std::endl;
 	//Byte array to cv Mat
 	auto bytesize = 4 * width * height;
 	std::vector<byte> input_image(input, input + bytesize);
@@ -88,7 +88,7 @@ EXPORT bool Bbox_BGRA(const byte* input, int width, int height, byte* imgResData
 	{
 		log << e.what() << std::endl;
 	}
-
+	log << "1" << std::endl;
 	//Fill in cam intrinsics and distortion coefficients
 	cv::Mat cam_matrix = cv::Mat(3, 3, CV_64FC1, K);
 	cv::Mat dist_coeffs = cv::Mat(5, 1, CV_64FC1, D);
@@ -148,7 +148,7 @@ EXPORT bool Bbox_BGRA(const byte* input, int width, int height, byte* imgResData
 	std::vector<cv::Rect> init_faces;
 	cv::Mat temp, temp_gray, croppedImg;
 	cv::cvtColor(img, temp, CV_BGRA2BGR);
-
+	log << "2" << std::endl;
 	try
 	{
 		face_cascade.load(face_cascade_name);
@@ -178,15 +178,22 @@ EXPORT bool Bbox_BGRA(const byte* input, int width, int height, byte* imgResData
 					croppedImg = temp(rect_old);
 				}
 			}
+			log << "3" << std::endl;
 			//ShowImg(croppedImg);
 			dlib::cv_image<dlib::bgr_pixel> cimg(croppedImg);
 
 			//Detect faces
 			faces = detector(cimg);
-
+			if (faces.size() == 0)
+			{
+				log << "dlib error: no face detected!!";
+				log.close();
+				return success;
+			}
+			log << "4" << std::endl;
 			//Track features
 			dlib::full_object_detection shape = predictor(cimg, faces[0]);
-
+			log << "5" << std::endl;
 			//Fill in 2D ref points, annotations follow https://ibug.doc.ic.ac.uk/resources/300-W/
 			image_pts.push_back(cv::Point2d(shape.part(17).x(), shape.part(17).y())); //#17 left brow left corner
 			image_pts.push_back(cv::Point2d(shape.part(21).x(), shape.part(21).y())); //#21 left brow right corner
@@ -346,7 +353,7 @@ EXPORT bool Bbox_BGRA(const byte* input, int width, int height, byte* imgResData
 				1,
 				cv::Scalar(255, 0, 255),
 				8);
-
+			log << "6" << std::endl;
 			//Compute principal point of the HMD "volume"
 			cv::Point* p1[1] = { hmd_frontal };
 			cv::Point* p2[1] = { hmd_back };
@@ -354,13 +361,13 @@ EXPORT bool Bbox_BGRA(const byte* input, int width, int height, byte* imgResData
 
 			principal_point[0] = ComputePP(p1, p2);
 
-			std::cout << "Principal point coords (x,y): " << principal_point[0].x << " , " << principal_point[0].y << std::endl;
+			//std::cout << "Principal point coords (x,y): " << principal_point[0].x << " , " << principal_point[0].y << std::endl;
 			//For visualization of the principal point uncomment the next 5 lines
 			//cv::line(img, hmd_frontal[0], hmd_back[2], cv::Scalar(255, 255, 0), 2);
 			//cv::line(img, hmd_frontal[1], hmd_back[3], cv::Scalar(255, 255, 0), 2);
 			//cv::circle(img, principal_point[0], 5, cv::Scalar(0, 0, 255), 3);
 			//ShowImg(img);
-
+			log << "7" << std::endl;
 			//Calculate euler angle
 			cv::Rodrigues(rotation_vec, rotation_mat);
 			cv::hconcat(rotation_mat, translation_vec, pose_mat);
@@ -437,7 +444,7 @@ EXPORT bool Bbox_BGRA(const byte* input, int width, int height, byte* imgResData
 
 			//Post-processing cv Mat to byte array
 			std::memcpy(imgResData, img.data, img.total() * img.elemSize() * sizeof(byte));
-
+			log << "8" << std::endl;
 			//ShowImg(img);
 			success = true;
 			log.close();
@@ -892,7 +899,8 @@ EXPORT bool BGRA2depth(const byte* imgColorData, const byte* imgDepthData, byte*
 	std::vector<byte> input_img(imgColorData, imgColorData + bytesize);
 	cv::Mat img = cv::Mat::zeros(1080, 1920, CV_8UC4);
 	std::memcpy(img.data, input_img.data(), input_img.size());
-
+	cv::cvtColor(img, img, CV_BGRA2BGR);
+	
 	//Byte array to cv Mat - Depthmap
 	auto d_bytesize = 2 * 424 * 512;
 	std::vector<byte> input_imgd(imgDepthData, imgDepthData + d_bytesize);
