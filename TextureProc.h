@@ -19,6 +19,7 @@
 #include <dlib/image_processing.h>
 #include <vector>
 #include <cmath>
+#include "Helper.h"
 
 typedef unsigned char byte;
 
@@ -36,7 +37,7 @@ extern "C"
 	EXPORT bool BGRA2depth(const byte* imgColorData, const byte* imgDepthData, byte* imgResData, float* params);
 
 	//Receives a byte array with BGR image data (1920x1080) and returns a byte array with the hmd-mapped Depth data
-	EXPORT bool BGR2depth(const byte* imgColorData, const byte* imgDepthData, byte* imgResData, float* params);
+	EXPORT bool BGR2depth(int device_id, const byte* imgColorData, const byte* imgDepthData, byte* imgResData, float* params);
 
 	//Maps tha artificial HMD from depth to color (BGRA image). Returns a byte array with the hmd-mapped Color data
 	EXPORT bool Depth2BGRA(const byte* imgColorData, const byte* imgDepthData, byte* imgResData);
@@ -55,27 +56,4 @@ extern "C"
 	
 	//Rotates 3D points
 	EXPORT void Rotate(double pitch, double roll, double yaw, std::vector<cv::Point3d> &points);
-}
-
-template<typename T> // Can be any type of number
-double CalcMedian(std::vector<T> scores)
-{
-	size_t size = scores.size();
-
-	if (size == 0)
-	{
-		return 0;  // Undefined, really.
-	}
-	else
-	{
-		sort(scores.begin(), scores.end());
-		if (size % 2 == 0)
-		{
-			return (scores[size / 2 - 1] + scores[size / 2]) / 2;
-		}
-		else
-		{
-			return scores[size / 2];
-		}
-	}
 }

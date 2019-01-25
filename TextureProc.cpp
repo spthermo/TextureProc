@@ -966,7 +966,7 @@ EXPORT bool BGRA2depth(const byte* imgColorData, const byte* imgDepthData, byte*
 }
 
 //Receives a byte array with BGR image data (1920x1080) and returns a byte array with the hmd-mapped Depth data
-EXPORT bool BGR2depth(const byte* imgColorData, const byte* imgDepthData, byte* imgResData, float* params)
+EXPORT bool BGR2depth(int device_id, const byte* imgColorData, const byte* imgDepthData, byte* imgResData, float* params)
 {
 	bool success = false;
 	uchar channel_b, channel_g, channel_r;
@@ -974,62 +974,27 @@ EXPORT bool BGR2depth(const byte* imgColorData, const byte* imgDepthData, byte* 
 
 	//D10 sensor parameters
 	std::vector< std::vector<float>> R(3, std::vector<float>(3, 0));
-	std::vector< std::vector<float>> T(3, std::vector<float>(1, 0));
+	std::vector<float> T(3, 0);
+	std::vector< std::vector<float>> cam_params(2, std::vector<float>(4, 0));
+
 	std::vector< std::vector<float>> P3D(3, std::vector<float>(1, 0));
 	std::vector< std::vector<float>> P3D_new(3, std::vector<float>(1, 0));
 	std::vector< std::vector<int>> P2D(2, std::vector<int>(1, 0));
 
-	//Rotation matrix // D10
-	R[0][0] = -1;
-	R[0][1] = 0.00044;
-	R[0][2] = 0;
-	R[1][0] = 0.00044;
-	R[1][1] = 1;
-	R[1][2] = 0;
-	R[2][0] = 0;
-	R[2][1] = 0;
-	R[2][2] = -1;
+	std::ostringstream oss;
+	oss << "KRT" << device_id << ".txt";
+	// const char* krt_file = oss.str().c_str();
+	read_ext_file(oss.str().c_str(), R, T, cam_params);
 
-	//Rotation matrix // D11
-	R[0][0] = -0.99999;
-	R[0][1] = -0.00408;
-	R[0][2] = 0;
-	R[1][0] = -0.00408;
-	R[1][1] = 0.99999;
-	R[1][2] = 0;
-	R[2][0] = 0;
-	R[2][1] = 0;
-	R[2][2] = -1;
-
-	//Translation vector // D10
-	T[0][0] = -51.57065;
-	T[1][0] = 0.00001;
-	T[2][0] = 0.00000;
-
-	//Translation vector // D11
-	T[0][0] = -52.54302;
-	T[1][0] = 0.00004;
-	T[2][0] = 0.00000;
-
-	//Focal and distortion params // D10
-	/*float fx_d = 364.3239;
-	float fy_d = -364.3239;
-	float cx_d = 258.5376;
-	float cy_d = 203.6222;
-	float fx_rgb = 1090.37279;
-	float fy_rgb = 1089.71454;
-	float cx_rgb = 941.28091;
-	float cy_rgb = 577.02934;*/
-
-	//Focal and distortion params // D10
-	float fx_d = 364.7277;
-	float fy_d = -364.7277;
-	float cx_d = 256.1403;
-	float cy_d = 212.3106;
-	float fx_rgb = 1070.19566;
-	float fy_rgb = 1069.46443;
-	float cx_rgb = 958.75354;
-	float cy_rgb = 545.59161;
+	//Focal and distortion params
+	float fx_d = cam_params[0][0];
+	float fy_d = -cam_params[0][1];
+	float cx_d = cam_params[0][2];
+	float cy_d = cam_params[0][3];
+	float fx_rgb = cam_params[1][0];
+	float fy_rgb = cam_params[1][1];
+	float cx_rgb = cam_params[1][2];
+	float cy_rgb = cam_params[1][3];
 
 	//Byte array to cv Mat - BGR
 	auto bytesize = 3 * 1080 * 1920;
@@ -1072,14 +1037,11 @@ EXPORT bool BGR2depth(const byte* imgColorData, const byte* imgDepthData, byte* 
 
 				for (int k = 0; k < 3; k++)
 				{
-					P3D_new[k][0] = (R[k][0] * P3D[0][0]) + (R[k][1] * P3D[1][0]) + (R[k][2] * P3D[2][0]) + T[k][0];
+					P3D_new[k][0] = (R[k][0] * P3D[0][0]) + (R[k][1] * P3D[1][0]) + (R[k][2] * P3D[2][0]) + T[k];
 				}
 
 				P2D[0][0] = (int)(P3D_new[0][0] * fx_rgb) / P3D_new[2][0] + cx_rgb;
 				P2D[1][0] = (int)(P3D_new[1][0] * fy_rgb) / P3D_new[2][0] + cy_rgb;
-
-				//P2D[0][0] = (int)(P3D[0][0] * fx_rgb) / P3D[2][0] + cx_rgb;
-				//P2D[1][0] = (int)(P3D[1][0] * fy_rgb) / P3D[2][0] + cy_rgb;
 
 				if (P2D[0][0] > 0 && P2D[0][0] < 1920 && P2D[1][0] > 0 && P2D[1][0] < 1080)
 				{
@@ -1110,11 +1072,6 @@ EXPORT bool BGR2depth(const byte* imgColorData, const byte* imgDepthData, byte* 
 							box_x_values.push_back(i);
 							box_y_values.push_back(j);
 							box_depthvalues.push_back(depthValue);
-
-							// central_3d_point = cv::Point3d(P3D[0][0], P3D[1][0], 750);
-
-							// std::cout << central_3d_point.x << " " << central_3d_point.y << " " << central_3d_point.z << std::endl;
-						
 						}
 					}
 				}
@@ -1122,7 +1079,7 @@ EXPORT bool BGR2depth(const byte* imgColorData, const byte* imgDepthData, byte* 
 		}
 	}
 
-	ShowImg(colorized_imgd);
+	// ShowImg(colorized_imgd);
 
 	auto med_depth_value = (ushort)CalcMedian<ushort>(box_depthvalues);
 	auto med_y_value = (int)CalcMedian<int>(box_y_values);
