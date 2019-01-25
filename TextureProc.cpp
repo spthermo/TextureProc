@@ -34,29 +34,7 @@ EXPORT void ColorizeDepth(cv::Mat imgd)
 	imgd.convertTo(adjMap, CV_8UC1, 0.15);
 	cv::applyColorMap(adjMap, colorMap, cv::COLORMAP_JET);
 	cv::imwrite("depth.png", colorMap);
-	//ShowImg(colorMap);
-}
-
-//Computes the intersection between two diagonals of the HMD and returns the intersection coordinates as a cv::Point
-EXPORT cv::Point ComputePP(cv::Point** front, cv::Point** back)
-{
-	cv::Point res[1];
-	float a1, b1, c1, a2, b2, c2, det;
-
-	a1 = back[0][2].y - front[0][0].y;
-	b1 = front[0][0].x - back[0][2].x;
-	c1 = (front[0][0].x * a1) + (front[0][0].y * b1);
-
-	a2 = back[0][3].y - front[0][1].y;
-	b2 = front[0][1].x - back[0][3].x;
-	c2 = (front[0][1].x * a2) + (front[0][1].y * b2);
-
-	det = (a1 * b2) - (a2 * b1);
-
-	res[0].x = static_cast<float>((c1 * b2) - (c2 * b1)) / det;
-	res[0].y = static_cast<float>((c2 * a1) - (c1 * a2)) / det;
-
-	return res[0];
+	ShowImg(colorMap);
 }
 
 //Receives a byte array with BGRA image data (1920x1080) and returns a byte array with the post-processed 
@@ -65,7 +43,7 @@ EXPORT bool Bbox_BGRA(const byte* input, int width, int height, byte* imgResData
 {
 	bool success = false;
 	std::ofstream log("mylog.txt");
-	log << "0" << std::endl;
+
 	//Byte array to cv Mat
 	auto bytesize = 4 * width * height;
 	std::vector<byte> input_image(input, input + bytesize);
@@ -88,7 +66,6 @@ EXPORT bool Bbox_BGRA(const byte* input, int width, int height, byte* imgResData
 	{
 		log << e.what() << std::endl;
 	}
-	log << "1" << std::endl;
 	//Fill in cam intrinsics and distortion coefficients
 	cv::Mat cam_matrix = cv::Mat(3, 3, CV_64FC1, K);
 	cv::Mat dist_coeffs = cv::Mat(5, 1, CV_64FC1, D);
@@ -148,7 +125,6 @@ EXPORT bool Bbox_BGRA(const byte* input, int width, int height, byte* imgResData
 	std::vector<cv::Rect> init_faces;
 	cv::Mat temp, temp_gray, croppedImg;
 	cv::cvtColor(img, temp, CV_BGRA2BGR);
-	log << "2" << std::endl;
 	try
 	{
 		face_cascade.load(face_cascade_name);
@@ -178,7 +154,7 @@ EXPORT bool Bbox_BGRA(const byte* input, int width, int height, byte* imgResData
 					croppedImg = temp(rect_old);
 				}
 			}
-			log << "3" << std::endl;
+
 			//ShowImg(croppedImg);
 			dlib::cv_image<dlib::bgr_pixel> cimg(croppedImg);
 
@@ -190,10 +166,10 @@ EXPORT bool Bbox_BGRA(const byte* input, int width, int height, byte* imgResData
 				log.close();
 				return success;
 			}
-			log << "4" << std::endl;
+
 			//Track features
 			dlib::full_object_detection shape = predictor(cimg, faces[0]);
-			log << "5" << std::endl;
+
 			//Fill in 2D ref points, annotations follow https://ibug.doc.ic.ac.uk/resources/300-W/
 			image_pts.push_back(cv::Point2d(shape.part(17).x(), shape.part(17).y())); //#17 left brow left corner
 			image_pts.push_back(cv::Point2d(shape.part(21).x(), shape.part(21).y())); //#21 left brow right corner
@@ -353,21 +329,7 @@ EXPORT bool Bbox_BGRA(const byte* input, int width, int height, byte* imgResData
 				1,
 				cv::Scalar(255, 0, 255),
 				8);
-			log << "6" << std::endl;
-			//Compute principal point of the HMD "volume"
-			cv::Point* p1[1] = { hmd_frontal };
-			cv::Point* p2[1] = { hmd_back };
-			cv::Point principal_point[1];
 
-			principal_point[0] = ComputePP(p1, p2);
-
-			//std::cout << "Principal point coords (x,y): " << principal_point[0].x << " , " << principal_point[0].y << std::endl;
-			//For visualization of the principal point uncomment the next 5 lines
-			//cv::line(img, hmd_frontal[0], hmd_back[2], cv::Scalar(255, 255, 0), 2);
-			//cv::line(img, hmd_frontal[1], hmd_back[3], cv::Scalar(255, 255, 0), 2);
-			//cv::circle(img, principal_point[0], 5, cv::Scalar(0, 0, 255), 3);
-			//ShowImg(img);
-			log << "7" << std::endl;
 			//Calculate euler angle
 			cv::Rodrigues(rotation_vec, rotation_mat);
 			cv::hconcat(rotation_mat, translation_vec, pose_mat);
@@ -426,16 +388,11 @@ EXPORT bool Bbox_BGRA(const byte* input, int width, int height, byte* imgResData
 			}
 			face_params->insert(face_params->end(), noise.begin(), noise.end());
 
-			pp.push_back((float)principal_point[0].x);
-			pp.push_back((float)principal_point[0].y);
-			face_params->insert(face_params->end(), pp.begin(), pp.end());
-
-			//The serialized vector contains (64 elements)
+			//The serialized vector contains (62 elements)
 			//[0-2] rotation 
 			//[3-5] translation
 			//[6-15] face bbox 
 			//[16-61] noise (hmd) box on the original image [front]->[back]->[left]->[right]->[top]->[bottom]
-			//[62-63] principal point (x,y)
 			for (int i = 0; i < size; i++)
 			{
 				res[i] = (float)face_params->at(i);
@@ -444,7 +401,6 @@ EXPORT bool Bbox_BGRA(const byte* input, int width, int height, byte* imgResData
 
 			//Post-processing cv Mat to byte array
 			std::memcpy(imgResData, img.data, img.total() * img.elemSize() * sizeof(byte));
-			log << "8" << std::endl;
 			//ShowImg(img);
 			success = true;
 			log.close();
@@ -747,20 +703,6 @@ EXPORT bool Bbox_BGR(const byte* input, int width, int height, byte* imgResData,
 				cv::Scalar(255, 0, 255),
 				8);
 
-			//Compute principal point of the HMD "volume"
-			cv::Point* p1[1] = { hmd_frontal };
-			cv::Point* p2[1] = { hmd_back };
-			cv::Point principal_point[1];
-
-			principal_point[0] = ComputePP(p1, p2);
-
-			std::cout << "Principal point coords (x,y): " << principal_point[0].x << " , " << principal_point[0].y << std::endl;
-			//For visualization of the principal point uncomment the next 5 lines
-			// cv::line(img, hmd_frontal[0], hmd_back[2], cv::Scalar(255, 255, 0), 2);
-			// cv::line(img, hmd_frontal[1], hmd_back[3], cv::Scalar(255, 255, 0), 2);*/
-			// cv::circle(img, principal_point[0], 5, cv::Scalar(0, 0, 255), 3);
-			// ShowImg(img);
-
 			//Calculate euler angle
 			cv::Rodrigues(rotation_vec, rotation_mat);
 			cv::hconcat(rotation_mat, translation_vec, pose_mat);
@@ -819,16 +761,11 @@ EXPORT bool Bbox_BGR(const byte* input, int width, int height, byte* imgResData,
 			}
 			face_params->insert(face_params->end(), noise.begin(), noise.end());
 
-			pp.push_back((float)principal_point[0].x);
-			pp.push_back((float)principal_point[0].y);
-			face_params->insert(face_params->end(), pp.begin(), pp.end());
-
-			//The serialized vector contains (64 elements)
+			//The serialized vector contains (62 elements)
 			//[0-2] rotation 
 			//[3-5] translation
 			//[6-15] face bbox 
 			//[16-61] noise (hmd) box on the original image [front]->[back]->[left]->[right]->[top]->[bottom]
-			//[62-63] principal point (x,y)
 			for (int i = 0; i < size; i++)
 			{
 				res[i] = (float)face_params->at(i);
@@ -838,7 +775,7 @@ EXPORT bool Bbox_BGR(const byte* input, int width, int height, byte* imgResData,
 			//Post-processing cv Mat to byte array
 			std::memcpy(imgResData, img.data, img.total() * img.elemSize() * sizeof(byte));
 
-			//ShowImg(img);
+			ShowImg(img);
 			success = true;
 			log.close();
 
@@ -1187,7 +1124,7 @@ EXPORT bool BGR2depth(const byte* imgColorData, const byte* imgDepthData, byte* 
 	}
 
 	// ShowImg(colorized_imgd);
-	// ColorizeDepth(imgd);
+	ColorizeDepth(imgd);
 
 	//Post-processing cv Mat to byte array
 	std::memcpy(imgResData, imgd.data, imgd.total() * imgd.elemSize() * sizeof(byte));
@@ -1229,4 +1166,24 @@ EXPORT void Rotate(double pitch, double roll, double yaw, std::vector<cv::Point3
 		points[i].y = Ayx*px + Ayy*py + Ayz*pz;
 		points[i].z = Azx*px + Azy*py + Azz*pz;
 	}
+}
+
+//Maps tha artificial HMD from depth to color (BGR image). Returns a byte array with the hmd-mapped Color data
+EXPORT bool Depth2BGRA(const byte* imgColorData, const byte* imgDepthData, byte* imgResData)
+{
+	bool success = false;
+
+	/* TBD */
+	
+	return success;
+}
+
+//Maps tha artificial HMD from depth to color (BGR image). Returns a byte array with the hmd-mapped Color data
+EXPORT bool Depth2BGR(const byte* imgColorData, const byte* imgDepthData, byte* imgResData)
+{
+	bool success = false;
+
+	/* TBD */
+
+	return success;
 }
