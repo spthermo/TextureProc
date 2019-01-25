@@ -9,6 +9,8 @@ cv::CascadeClassifier face_cascade;
 
 static std::unique_ptr<std::vector<double>> face_params(new std::vector<double>());
 
+
+
 //Displays the post-processed BGR/BGRA image (mostly used for debugging)
 EXPORT void ShowImg(cv::Mat img)
 {
@@ -34,7 +36,7 @@ EXPORT void ColorizeDepth(cv::Mat imgd)
 	imgd.convertTo(adjMap, CV_8UC1, 0.15);
 	cv::applyColorMap(adjMap, colorMap, cv::COLORMAP_JET);
 	cv::imwrite("depth.png", colorMap);
-	//ShowImg(colorMap);
+	ShowImg(colorMap);
 }
 
 //Computes the intersection between two diagonals of the HMD and returns the intersection coordinates as a cv::Point
@@ -65,7 +67,7 @@ EXPORT bool Bbox_BGRA(const byte* input, int width, int height, byte* imgResData
 {
 	bool success = false;
 	std::ofstream log("mylog.txt");
-	log << "0" << std::endl;
+
 	//Byte array to cv Mat
 	auto bytesize = 4 * width * height;
 	std::vector<byte> input_image(input, input + bytesize);
@@ -88,7 +90,6 @@ EXPORT bool Bbox_BGRA(const byte* input, int width, int height, byte* imgResData
 	{
 		log << e.what() << std::endl;
 	}
-	log << "1" << std::endl;
 	//Fill in cam intrinsics and distortion coefficients
 	cv::Mat cam_matrix = cv::Mat(3, 3, CV_64FC1, K);
 	cv::Mat dist_coeffs = cv::Mat(5, 1, CV_64FC1, D);
@@ -148,7 +149,6 @@ EXPORT bool Bbox_BGRA(const byte* input, int width, int height, byte* imgResData
 	std::vector<cv::Rect> init_faces;
 	cv::Mat temp, temp_gray, croppedImg;
 	cv::cvtColor(img, temp, CV_BGRA2BGR);
-	log << "2" << std::endl;
 	try
 	{
 		face_cascade.load(face_cascade_name);
@@ -178,7 +178,7 @@ EXPORT bool Bbox_BGRA(const byte* input, int width, int height, byte* imgResData
 					croppedImg = temp(rect_old);
 				}
 			}
-			log << "3" << std::endl;
+
 			//ShowImg(croppedImg);
 			dlib::cv_image<dlib::bgr_pixel> cimg(croppedImg);
 
@@ -190,10 +190,10 @@ EXPORT bool Bbox_BGRA(const byte* input, int width, int height, byte* imgResData
 				log.close();
 				return success;
 			}
-			log << "4" << std::endl;
+
 			//Track features
 			dlib::full_object_detection shape = predictor(cimg, faces[0]);
-			log << "5" << std::endl;
+
 			//Fill in 2D ref points, annotations follow https://ibug.doc.ic.ac.uk/resources/300-W/
 			image_pts.push_back(cv::Point2d(shape.part(17).x(), shape.part(17).y())); //#17 left brow left corner
 			image_pts.push_back(cv::Point2d(shape.part(21).x(), shape.part(21).y())); //#21 left brow right corner
@@ -353,21 +353,7 @@ EXPORT bool Bbox_BGRA(const byte* input, int width, int height, byte* imgResData
 				1,
 				cv::Scalar(255, 0, 255),
 				8);
-			log << "6" << std::endl;
-			//Compute principal point of the HMD "volume"
-			cv::Point* p1[1] = { hmd_frontal };
-			cv::Point* p2[1] = { hmd_back };
-			cv::Point principal_point[1];
 
-			principal_point[0] = ComputePP(p1, p2);
-
-			//std::cout << "Principal point coords (x,y): " << principal_point[0].x << " , " << principal_point[0].y << std::endl;
-			//For visualization of the principal point uncomment the next 5 lines
-			//cv::line(img, hmd_frontal[0], hmd_back[2], cv::Scalar(255, 255, 0), 2);
-			//cv::line(img, hmd_frontal[1], hmd_back[3], cv::Scalar(255, 255, 0), 2);
-			//cv::circle(img, principal_point[0], 5, cv::Scalar(0, 0, 255), 3);
-			//ShowImg(img);
-			log << "7" << std::endl;
 			//Calculate euler angle
 			cv::Rodrigues(rotation_vec, rotation_mat);
 			cv::hconcat(rotation_mat, translation_vec, pose_mat);
@@ -426,16 +412,11 @@ EXPORT bool Bbox_BGRA(const byte* input, int width, int height, byte* imgResData
 			}
 			face_params->insert(face_params->end(), noise.begin(), noise.end());
 
-			pp.push_back((float)principal_point[0].x);
-			pp.push_back((float)principal_point[0].y);
-			face_params->insert(face_params->end(), pp.begin(), pp.end());
-
-			//The serialized vector contains (64 elements)
+			//The serialized vector contains (62 elements)
 			//[0-2] rotation 
 			//[3-5] translation
 			//[6-15] face bbox 
 			//[16-61] noise (hmd) box on the original image [front]->[back]->[left]->[right]->[top]->[bottom]
-			//[62-63] principal point (x,y)
 			for (int i = 0; i < size; i++)
 			{
 				res[i] = (float)face_params->at(i);
@@ -444,7 +425,6 @@ EXPORT bool Bbox_BGRA(const byte* input, int width, int height, byte* imgResData
 
 			//Post-processing cv Mat to byte array
 			std::memcpy(imgResData, img.data, img.total() * img.elemSize() * sizeof(byte));
-			log << "8" << std::endl;
 			//ShowImg(img);
 			success = true;
 			log.close();
@@ -756,10 +736,10 @@ EXPORT bool Bbox_BGR(const byte* input, int width, int height, byte* imgResData,
 
 			std::cout << "Principal point coords (x,y): " << principal_point[0].x << " , " << principal_point[0].y << std::endl;
 			//For visualization of the principal point uncomment the next 5 lines
-			// cv::line(img, hmd_frontal[0], hmd_back[2], cv::Scalar(255, 255, 0), 2);
-			// cv::line(img, hmd_frontal[1], hmd_back[3], cv::Scalar(255, 255, 0), 2);*/
-			// cv::circle(img, principal_point[0], 5, cv::Scalar(0, 0, 255), 3);
-			// ShowImg(img);
+			//cv::line(img, hmd_frontal[0], hmd_back[2], cv::Scalar(255, 255, 0), 2);
+			//cv::line(img, hmd_frontal[1], hmd_back[3], cv::Scalar(255, 255, 0), 2);
+			//cv::circle(img, principal_point[0], 5, cv::Scalar(0, 0, 255), 3);
+			//ShowImg(img);
 
 			//Calculate euler angle
 			cv::Rodrigues(rotation_vec, rotation_mat);
@@ -819,16 +799,11 @@ EXPORT bool Bbox_BGR(const byte* input, int width, int height, byte* imgResData,
 			}
 			face_params->insert(face_params->end(), noise.begin(), noise.end());
 
-			pp.push_back((float)principal_point[0].x);
-			pp.push_back((float)principal_point[0].y);
-			face_params->insert(face_params->end(), pp.begin(), pp.end());
-
-			//The serialized vector contains (64 elements)
+			//The serialized vector contains (62 elements)
 			//[0-2] rotation 
 			//[3-5] translation
 			//[6-15] face bbox 
 			//[16-61] noise (hmd) box on the original image [front]->[back]->[left]->[right]->[top]->[bottom]
-			//[62-63] principal point (x,y)
 			for (int i = 0; i < size; i++)
 			{
 				res[i] = (float)face_params->at(i);
@@ -838,7 +813,7 @@ EXPORT bool Bbox_BGR(const byte* input, int width, int height, byte* imgResData,
 			//Post-processing cv Mat to byte array
 			std::memcpy(imgResData, img.data, img.total() * img.elemSize() * sizeof(byte));
 
-			//ShowImg(img);
+			ShowImg(img);
 			success = true;
 			log.close();
 
@@ -1040,7 +1015,7 @@ EXPORT bool BGR2depth(const byte* imgColorData, const byte* imgDepthData, byte* 
 	std::vector< std::vector<float>> P3D_new(3, std::vector<float>(1, 0));
 	std::vector< std::vector<int>> P2D(2, std::vector<int>(1, 0));
 
-	//Rotation matrix
+	//Rotation matrix // D10
 	R[0][0] = -1;
 	R[0][1] = 0.00044;
 	R[0][2] = 0;
@@ -1051,20 +1026,46 @@ EXPORT bool BGR2depth(const byte* imgColorData, const byte* imgDepthData, byte* 
 	R[2][1] = 0;
 	R[2][2] = -1;
 
-	//Translation vector
+	//Rotation matrix // D11
+	R[0][0] = -0.99999;
+	R[0][1] = -0.00408;
+	R[0][2] = 0;
+	R[1][0] = -0.00408;
+	R[1][1] = 0.99999;
+	R[1][2] = 0;
+	R[2][0] = 0;
+	R[2][1] = 0;
+	R[2][2] = -1;
+
+	//Translation vector // D10
 	T[0][0] = -51.57065;
 	T[1][0] = 0.00001;
 	T[2][0] = 0.00000;
 
-	//Focal and distortion params
-	float fy_d = 364.3239;
-	float fx_d = -364.3239;
-	float cy_d = 258.5376;
-	float cx_d = 203.6222;
+	//Translation vector // D11
+	T[0][0] = -52.54302;
+	T[1][0] = 0.00004;
+	T[2][0] = 0.00000;
+
+	//Focal and distortion params // D10
+	/*float fx_d = 364.3239;
+	float fy_d = -364.3239;
+	float cx_d = 258.5376;
+	float cy_d = 203.6222;
 	float fx_rgb = 1090.37279;
 	float fy_rgb = 1089.71454;
 	float cx_rgb = 941.28091;
-	float cy_rgb = 577.02934;
+	float cy_rgb = 577.02934;*/
+
+	//Focal and distortion params // D10
+	float fx_d = 364.7277;
+	float fy_d = -364.7277;
+	float cx_d = 256.1403;
+	float cy_d = 212.3106;
+	float fx_rgb = 1070.19566;
+	float fy_rgb = 1069.46443;
+	float cx_rgb = 958.75354;
+	float cy_rgb = 545.59161;
 
 	//Byte array to cv Mat - BGR
 	auto bytesize = 3 * 1080 * 1920;
@@ -1076,6 +1077,7 @@ EXPORT bool BGR2depth(const byte* imgColorData, const byte* imgDepthData, byte* 
 	auto d_bytesize = 2 * 424 * 512;
 	std::vector<byte> input_imgd(imgDepthData, imgDepthData + d_bytesize);
 	cv::Mat imgd = cv::Mat::zeros(424, 512, CV_16U);
+	cv::Mat imgd_rgb = cv::Mat::zeros(424, 512, CV_8UC3);
 	std::memcpy(imgd.data, input_imgd.data(), input_imgd.size());
 
 	//For visualization purposes
@@ -1083,23 +1085,24 @@ EXPORT bool BGR2depth(const byte* imgColorData, const byte* imgDepthData, byte* 
 
 	cv::Vec3b ColorValue;
 
-	cv::Point3d central_3d_point;
-
-	bool ready = false;
 
 	cv::imwrite("depth_original.png", imgd);
 
+	std::vector<ushort> box_depthvalues;
+	std::vector<int> box_x_values;
+	std::vector<int> box_y_values;
+
 	//Depth to color mapping
-	for (int j = 0; j < imgd.rows; j++)
+	for (int i = 0; i < imgd.cols; i++)
 	{
-		for (int i = 0; i < imgd.cols; i++)
+		for (int j = 0; j < imgd.rows; j++)
 		{
 			depthValue = imgd.at<ushort>(j, i);
 
 			if (depthValue > 0)
 			{
-				P3D[0][0] = (i - cy_d) * depthValue / fy_d;
-				P3D[1][0] = (j - cx_d) * depthValue / fx_d;
+				P3D[0][0] = (i - cx_d) * depthValue / fx_d;
+				P3D[1][0] = (j - cy_d) * depthValue / fy_d;
 
 				P3D[2][0] = depthValue;
 
@@ -1110,6 +1113,9 @@ EXPORT bool BGR2depth(const byte* imgColorData, const byte* imgDepthData, byte* 
 
 				P2D[0][0] = (int)(P3D_new[0][0] * fx_rgb) / P3D_new[2][0] + cx_rgb;
 				P2D[1][0] = (int)(P3D_new[1][0] * fy_rgb) / P3D_new[2][0] + cy_rgb;
+
+				//P2D[0][0] = (int)(P3D[0][0] * fx_rgb) / P3D[2][0] + cx_rgb;
+				//P2D[1][0] = (int)(P3D[1][0] * fy_rgb) / P3D[2][0] + cy_rgb;
 
 				if (P2D[0][0] > 0 && P2D[0][0] < 1920 && P2D[1][0] > 0 && P2D[1][0] < 1080)
 				{
@@ -1135,20 +1141,39 @@ EXPORT bool BGR2depth(const byte* imgColorData, const byte* imgDepthData, byte* 
 					{
 						imgd.at<ushort>(j, i) = 65000;
 
-						central_3d_point = cv::Point3d(P3D[0][0], P3D[1][0], P3D[2][0]);
-						ready = true;
-						// central_3d_point = cv::Point3d(0, 0, P3D_new[2][0]);
-						break;
+						if (depthValue > 50 && depthValue < 3500)
+						{
+							box_x_values.push_back(i);
+							box_y_values.push_back(j);
+							box_depthvalues.push_back(depthValue);
+
+							// central_3d_point = cv::Point3d(P3D[0][0], P3D[1][0], 750);
+
+							// std::cout << central_3d_point.x << " " << central_3d_point.y << " " << central_3d_point.z << std::endl;
+						
+						}
 					}
 				}
 			}
 		}
-		if (ready)
-			break;
 	}
+
+	ShowImg(colorized_imgd);
+
+	auto med_depth_value = (ushort)CalcMedian<ushort>(box_depthvalues);
+	auto med_y_value = (int)CalcMedian<int>(box_y_values);
+	auto med_x_value = (int)CalcMedian<int>(box_x_values);
+
+	cv::Point3d central_3d_point = cv::Point3d(
+		(med_x_value - cx_d) * med_depth_value / fx_d,
+		(med_y_value - cy_d) * med_depth_value / fy_d,
+		med_depth_value
+	);
 
 	// 3D Construction appropriate for rendering
 	std::vector<cv::Point3d> Construction3D;
+
+	Construction3D.clear();
 
 	float width = 75, height = 50, depth = 45;
 
@@ -1159,35 +1184,39 @@ EXPORT bool BGR2depth(const byte* imgColorData, const byte* imgDepthData, byte* 
 				Construction3D.push_back(cv::Point3d(x, y, z));
 			}
 
+	std::cout << Construction3D.size() << std::endl;
+
+
 	Rotate(params[1], params[2], params[0], Construction3D);
 
 	//std::cout << "p.y.r.: " << params[0] << " " << params[1] << " " << params[2] << "\n";
 
-	//std::cout << "c.p.: " << central_3d_point.x << " " << central_3d_point.y << " " << central_3d_point.z << "\n";
+	std::cout << "c.p.: " << central_3d_point.x << " " << central_3d_point.y << " " << central_3d_point.z << "\n";
 
-	auto cp_dp_x = (int)(central_3d_point.x * fy_d) / central_3d_point.z + cy_d;
-	auto cp_dp_y = (int)(central_3d_point.y * fx_d) / central_3d_point.z + cx_d;
+	auto cp_dp_x = (int)(central_3d_point.x * fx_d) / central_3d_point.z + cx_d;
+	auto cp_dp_y = (int)(central_3d_point.y * fy_d) / central_3d_point.z + cy_d;
 
 	// imgd.at<ushort>(cp_dp_y, cp_dp_x) = 65000;
 
-	for (auto i = 0; i < Construction3D.size(); i++) {
+	for (auto i = 0; i < Construction3D.size(); ++i) {
 		Construction3D[i] += central_3d_point;
 
 		//std::cout << Construction3D[i].x << " " << Construction3D[i].y << " " << Construction3D[i].z << "\n";
 
-		auto dp_x = (int)(Construction3D[i].x * fy_d) / Construction3D[i].z + cy_d;
-		auto dp_y = (int)(Construction3D[i].y * fx_d) / Construction3D[i].z + cx_d;
+		auto dp_x = (int)(Construction3D[i].x * fx_d) / Construction3D[i].z + cx_d;
+		auto dp_y = (int)(Construction3D[i].y * fy_d) / Construction3D[i].z + cy_d;
 
 		//std::cout << dp_x << " " << dp_y << " " << Construction3D[i].z << "\n";
 
 		//P3D[0][0] = (i - cy_d) * depthValue / fy_d;
 		//P3D[1][0] = (j - cx_d) * depthValue / fx_d;
-		if (imgd.at<ushort>(dp_y, dp_x) > Construction3D[i].z || imgd.at<ushort>(dp_y, dp_x) < 50)
-			imgd.at<ushort>(dp_y, dp_x) = Construction3D[i].z;
+		if (dp_x > 0 && dp_x < 512 && dp_y > 0 && dp_y < 424)
+			if (imgd.at<ushort>(dp_y, dp_x) > Construction3D[i].z || imgd.at<ushort>(dp_y, dp_x) < 50)
+				imgd.at<ushort>(dp_y, dp_x) = Construction3D[i].z;
 	}
 
 	// ShowImg(colorized_imgd);
-	// ColorizeDepth(imgd);
+	ColorizeDepth(imgd);
 
 	//Post-processing cv Mat to byte array
 	std::memcpy(imgResData, imgd.data, imgd.total() * imgd.elemSize() * sizeof(byte));
@@ -1196,6 +1225,8 @@ EXPORT bool BGR2depth(const byte* imgColorData, const byte* imgDepthData, byte* 
 
 	return success;
 }
+
+
 
 //Rotates 3D points
 EXPORT void Rotate(double pitch, double roll, double yaw, std::vector<cv::Point3d> &points) {
@@ -1229,4 +1260,24 @@ EXPORT void Rotate(double pitch, double roll, double yaw, std::vector<cv::Point3
 		points[i].y = Ayx*px + Ayy*py + Ayz*pz;
 		points[i].z = Azx*px + Azy*py + Azz*pz;
 	}
+}
+
+//Maps tha artificial HMD from depth to color (BGR image). Returns a byte array with the hmd-mapped Color data
+EXPORT bool Depth2BGRA(const byte* imgColorData, const byte* imgDepthData, byte* imgResData)
+{
+	bool success = false;
+
+	/* TBD */
+	
+	return success;
+}
+
+//Maps tha artificial HMD from depth to color (BGR image). Returns a byte array with the hmd-mapped Color data
+EXPORT bool Depth2BGR(const byte* imgColorData, const byte* imgDepthData, byte* imgResData)
+{
+	bool success = false;
+
+	/* TBD */
+
+	return success;
 }

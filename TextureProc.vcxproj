@@ -60,9 +60,9 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <Import Project="3rd_party\opencv_x32_vc14_release.props" />
-    <Import Project="3rd_party\dlib_x32_vc14_release.props" />
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+    <Import Project="3rd_party\dlib_x32_vc14_release.props" />
+    <Import Project="3rd_party\opencv_x32_vc14_release.props" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
@@ -91,12 +91,12 @@
       <Optimization>Disabled</Optimization>
       <PreprocessorDefinitions>WIN32;_DEBUG;_WINDOWS;_USRDLL;TEXTUREPROC_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <SDLCheck>true</SDLCheck>
-      <AdditionalIncludeDirectories>C:\opencv\build\include;D:\VRTogether\3party_libs\dlib-19.6;D:\VRTogether\Research\code\head-pose-estimation-master\head_pose\TextureProc</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>E:\Libraries\OpenCV2.4.13\opencv\build\include;E:\Libraries\dlib-19.6_sp\dlib-19.6;..\TextureProc</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
-      <AdditionalLibraryDirectories>D:\VRTogether\3party_libs\dlib-19.6\build2\Release;C:\opencv\build\x86\vc14\lib;D:\VRTogether\Research\code\head-pose-estimation-master\head_pose\TextureProc</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>E:\Libraries\dlib-19.6_sp\dlib-19.6\build2\Release;E:\Libraries\OpenCV2.4.13\opencv\build\x86\vc14\lib;D:\VRTogether\Research\code\head-pose-estimation-master\head_pose\TextureProc</AdditionalLibraryDirectories>
       <AdditionalDependencies>opencv_core2413.lib;opencv_imgproc2413.lib;opencv_highgui2413.lib;opencv_calib3d2413.lib;opencv_objdetect2413.lib;dlib.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>

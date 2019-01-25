@@ -37,6 +37,12 @@ extern "C"
 
 	//Receives a byte array with BGR image data (1920x1080) and returns a byte array with the hmd-mapped Depth data
 	EXPORT bool BGR2depth(const byte* imgColorData, const byte* imgDepthData, byte* imgResData, float* params);
+
+	//Maps tha artificial HMD from depth to color (BGRA image). Returns a byte array with the hmd-mapped Color data
+	EXPORT bool Depth2BGRA(const byte* imgColorData, const byte* imgDepthData, byte* imgResData);
+
+	//Maps tha artificial HMD from depth to color (BGR image). Returns a byte array with the hmd-mapped Color data
+	EXPORT bool Depth2BGR(const byte* imgColorData, const byte* imgDepthData, byte* imgResData);
 	
 	//Displays the post-processed BGR/BGRA image (mostly used for debugging)
 	EXPORT void ShowImg(cv::Mat img);
@@ -46,10 +52,30 @@ extern "C"
 
 	//Colorization of the depth image (mostly used for debugging)
 	EXPORT void ColorizeDepth(cv::Mat imgd);
-
-	//Computes the intersection between two diagonals of the HMD and returns the intersection coordinates as a cv::Point
-	EXPORT cv::Point ComputePP(cv::Point** front, cv::Point** back);
 	
 	//Rotates 3D points
 	EXPORT void Rotate(double pitch, double roll, double yaw, std::vector<cv::Point3d> &points);
+}
+
+template<typename T> // Can be any type of number
+double CalcMedian(std::vector<T> scores)
+{
+	size_t size = scores.size();
+
+	if (size == 0)
+	{
+		return 0;  // Undefined, really.
+	}
+	else
+	{
+		sort(scores.begin(), scores.end());
+		if (size % 2 == 0)
+		{
+			return (scores[size / 2 - 1] + scores[size / 2]) / 2;
+		}
+		else
+		{
+			return scores[size / 2];
+		}
+	}
 }
