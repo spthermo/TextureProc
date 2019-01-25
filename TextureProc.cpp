@@ -39,28 +39,6 @@ EXPORT void ColorizeDepth(cv::Mat imgd)
 	ShowImg(colorMap);
 }
 
-//Computes the intersection between two diagonals of the HMD and returns the intersection coordinates as a cv::Point
-EXPORT cv::Point ComputePP(cv::Point** front, cv::Point** back)
-{
-	cv::Point res[1];
-	float a1, b1, c1, a2, b2, c2, det;
-
-	a1 = back[0][2].y - front[0][0].y;
-	b1 = front[0][0].x - back[0][2].x;
-	c1 = (front[0][0].x * a1) + (front[0][0].y * b1);
-
-	a2 = back[0][3].y - front[0][1].y;
-	b2 = front[0][1].x - back[0][3].x;
-	c2 = (front[0][1].x * a2) + (front[0][1].y * b2);
-
-	det = (a1 * b2) - (a2 * b1);
-
-	res[0].x = static_cast<float>((c1 * b2) - (c2 * b1)) / det;
-	res[0].y = static_cast<float>((c2 * a1) - (c1 * a2)) / det;
-
-	return res[0];
-}
-
 //Receives a byte array with BGRA image data (1920x1080) and returns a byte array with the post-processed 
 //BGRA image (HMD noise rectangle), as well as a float array with the translation, rotation, and bbox parameters.
 EXPORT bool Bbox_BGRA(const byte* input, int width, int height, byte* imgResData, float* res, int size)
@@ -726,20 +704,6 @@ EXPORT bool Bbox_BGR(const byte* input, int width, int height, byte* imgResData,
 				1,
 				cv::Scalar(255, 0, 255),
 				8);
-
-			//Compute principal point of the HMD "volume"
-			cv::Point* p1[1] = { hmd_frontal };
-			cv::Point* p2[1] = { hmd_back };
-			cv::Point principal_point[1];
-
-			principal_point[0] = ComputePP(p1, p2);
-
-			std::cout << "Principal point coords (x,y): " << principal_point[0].x << " , " << principal_point[0].y << std::endl;
-			//For visualization of the principal point uncomment the next 5 lines
-			//cv::line(img, hmd_frontal[0], hmd_back[2], cv::Scalar(255, 255, 0), 2);
-			//cv::line(img, hmd_frontal[1], hmd_back[3], cv::Scalar(255, 255, 0), 2);
-			//cv::circle(img, principal_point[0], 5, cv::Scalar(0, 0, 255), 3);
-			//ShowImg(img);
 
 			//Calculate euler angle
 			cv::Rodrigues(rotation_vec, rotation_mat);
