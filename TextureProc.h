@@ -25,35 +25,22 @@ typedef unsigned char byte;
 
 extern "C"
 {
-	//Receives a byte array with BGRA image data (1920x1080) and returns a byte array with the post-processed 
-	//BGRA image (HMD noise rectangle), as well as a float array with the translation, rotation, and bbox parameters.
-	EXPORT bool Bbox_BGRA(const byte* imgData, int width, int height, byte* imgResData, float* res, int size);
+	//Receives a byte array with BGR(A) image data (1920x1080) and returns a byte array with the post-processed 
+	//image ands a float array with the translation, rotation, and principal point parameters.
+	EXPORT bool principal_point_localization(const byte* imgData, int width, int height, byte* imgResData, float* res, int size, bool alpha);
 
-	//Receives a byte array with BGR image data (1920x1080) and returns a byte array with the post-processed 
-	//BGR image (HMD noise rectangle), as well as a float array with the translation, rotation, and bbox parameters.
-	EXPORT bool Bbox_BGR(const byte* imgData, int width, int height, byte* imgResData, float* res, int size);
+	//Receives a byte array with BGR(A) image data (1920x1080) and a byte array with depth image data. Returns two byte arrays with the generated hmd on color amd depth data.
+	EXPORT bool artificial_hmd_placement(int device_id, const byte* imgColorData, const byte* imgDepthData, byte* imgDepthResData, byte* imgBGRResData, float* params, bool alpha);
 
-	//Receives a byte array with BGRA image data (1920x1080) and returns a byte array with the hmd-mapped Depth data
-	EXPORT bool BGRA2depth(const byte* imgColorData, const byte* imgDepthData, byte* imgResData, float* params);
+	//Displays the post-processed BGR(A) image (mostly used for debugging)
+	EXPORT void showImg(cv::Mat img);
 
-	//Receives a byte array with BGR image data (1920x1080) and returns a byte array with the hmd-mapped Depth data
-	EXPORT bool BGR2depth(int device_id, const byte* imgColorData, const byte* imgDepthData, byte* imgResData, float* params);
-
-	//Maps tha artificial HMD from depth to color (BGRA image). Returns a byte array with the hmd-mapped Color data
-	EXPORT bool Depth2BGRA(const byte* imgColorData, const byte* imgDepthData, byte* imgResData);
-
-	//Maps tha artificial HMD from depth to color (BGR image). Returns a byte array with the hmd-mapped Color data
-	EXPORT bool Depth2BGR(const byte* imgColorData, const byte* imgDepthData, byte* imgResData);
-	
-	//Displays the post-processed BGR/BGRA image (mostly used for debugging)
-	EXPORT void ShowImg(cv::Mat img);
-
-	//Saves the post-processed BGR/BGRA image (mostly used for debugging)
-	EXPORT void SaveImg(char *name, cv::Mat img);
+	//Saves the post-processed BGR(A) image (mostly used for debugging)
+	EXPORT void saveImg(char *name, cv::Mat img);
 
 	//Colorization of the depth image (mostly used for debugging)
-	EXPORT void ColorizeDepth(cv::Mat imgd);
+	EXPORT void colorizeDepth(cv::Mat imgd);
 	
 	//Rotates 3D points
-	EXPORT void Rotate(double pitch, double roll, double yaw, std::vector<cv::Point3d> &points);
+	EXPORT void rotate(double pitch, double roll, double yaw, std::vector<cv::Point3d> &points);
 }
