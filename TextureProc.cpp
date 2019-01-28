@@ -35,7 +35,7 @@ EXPORT void ColorizeDepth(cv::Mat imgd)
 	cv::convertScaleAbs(imgd, adjMap);
 	imgd.convertTo(adjMap, CV_8UC1, 0.15);
 	cv::applyColorMap(adjMap, colorMap, cv::COLORMAP_JET);
-	cv::imwrite("depth.png", colorMap);
+	cv::imwrite("final_depth.png", colorMap);
 	ShowImg(colorMap);
 }
 
@@ -1110,14 +1110,17 @@ EXPORT bool BGR2depth(int device_id, const byte* imgColorData, const byte* imgDe
 
 	Rotate(params[1], params[2], params[0], Construction3D);
 
-	//std::cout << "p.y.r.: " << params[0] << " " << params[1] << " " << params[2] << "\n";
+	// std::cout << "p.y.r.: " << params[0] << " " << params[1] << " " << params[2] << "\n";
 
-	std::cout << "c.p.: " << central_3d_point.x << " " << central_3d_point.y << " " << central_3d_point.z << "\n";
+	// std::cout << "c.p.: " << central_3d_point.x << " " << central_3d_point.y << " " << central_3d_point.z << "\n";
 
 	auto cp_dp_x = (int)(central_3d_point.x * fx_d) / central_3d_point.z + cx_d;
 	auto cp_dp_y = (int)(central_3d_point.y * fy_d) / central_3d_point.z + cy_d;
 
-	// imgd.at<ushort>(cp_dp_y, cp_dp_x) = 65000;
+
+	// Masked image and 2.5D data
+	cv::Mat imgd_mask = cv::Mat::zeros(424, 512, CV_8U);
+	std::vector<cv::Point3d> masked_points;
 
 	for (auto i = 0; i < Construction3D.size(); ++i) {
 		Construction3D[i] += central_3d_point;
@@ -1127,14 +1130,120 @@ EXPORT bool BGR2depth(int device_id, const byte* imgColorData, const byte* imgDe
 		auto dp_x = (int)(Construction3D[i].x * fx_d) / Construction3D[i].z + cx_d;
 		auto dp_y = (int)(Construction3D[i].y * fy_d) / Construction3D[i].z + cy_d;
 
-		//std::cout << dp_x << " " << dp_y << " " << Construction3D[i].z << "\n";
-
-		//P3D[0][0] = (i - cy_d) * depthValue / fy_d;
-		//P3D[1][0] = (j - cx_d) * depthValue / fx_d;
-		if (dp_x > 0 && dp_x < 512 && dp_y > 0 && dp_y < 424)
+		if (dp_x > 0 && dp_x < 512 && dp_y > 0 && dp_y < 424) {
 			if (imgd.at<ushort>(dp_y, dp_x) > Construction3D[i].z || imgd.at<ushort>(dp_y, dp_x) < 50)
+			{
+				masked_points.push_back(cv::Point3d(dp_x, dp_y, Construction3D[i].z));
 				imgd.at<ushort>(dp_y, dp_x) = Construction3D[i].z;
+				imgd_mask.at<byte>(dp_y, dp_x) = 255;
+			}
+		}
 	}
+
+	ShowImg(imgd_mask);
+	std::vector<cv::Point> mask_points, conv_hull;
+	cv::Mat img_rgb_mask = cv::Mat::zeros(1080, 1920, CV_8U);
+
+#pragma region Custom Concave Hull
+	for (int j = 0; j < imgd_mask.rows; j++)
+	{
+		bool mask_point_found_i = false;
+		int first_mask_point_found_i = 0;
+
+		for (int i = 0; i < imgd_mask.cols; i++)
+		{
+			if (imgd_mask.at<byte>(j, i) == 255)
+			{
+				P3D[0][0] = (i - cx_d) * imgd.at<ushort>(j, i) / fx_d;
+				P3D[1][0] = (j - cy_d) * imgd.at<ushort>(j, i) / fy_d;
+
+				P3D[2][0] = imgd.at<ushort>(j, i);
+
+				for (int k = 0; k < 3; k++)
+				{
+					P3D_new[k][0] = (R[k][0] * P3D[0][0]) + (R[k][1] * P3D[1][0]) + (R[k][2] * P3D[2][0]) + T[k];
+				}
+
+				P2D[0][0] = (int)(P3D_new[0][0] * fx_rgb) / P3D_new[2][0] + cx_rgb;
+				P2D[1][0] = (int)(P3D_new[1][0] * fy_rgb) / P3D_new[2][0] + cy_rgb;
+
+				if (P2D[0][0] > 0 && P2D[0][0] < 1920 && P2D[1][0] > 0 && P2D[1][0] < 1080)
+				{
+					auto dist_i = P2D[0][0] - first_mask_point_found_i;
+
+					if (mask_point_found_i && dist_i < 8 && dist_i > 0)
+					{
+						for (int k = first_mask_point_found_i; k < P2D[0][0] + 1; ++k)
+						{
+							// std::cout << k << " " << abs_dist_i  << std::endl;
+							img_rgb_mask.at<byte>(P2D[1][0], k) = 255;
+						}
+						first_mask_point_found_i = P2D[0][0];
+					}
+					else
+					{
+						img_rgb_mask.at<byte>(P2D[1][0], P2D[0][0]) = 255;
+						first_mask_point_found_i = P2D[0][0];
+						mask_point_found_i = true;
+					}		
+				}
+			}
+		}
+	}
+
+	//Depth to color mapping
+	for (int i = 0; i < img_rgb_mask.cols; i++)
+	{
+		bool mask_point_found_j = false;
+		int first_mask_point_found_j = 0;
+
+		for (int j = 0; j < img_rgb_mask.rows; j++)
+		{
+			if (img_rgb_mask.at<byte>(j, i) == 255)
+			{				
+				auto dist_j = j - first_mask_point_found_j;
+
+				if (mask_point_found_j && dist_j < 8 && dist_j > 0)
+				{
+					for (int k = first_mask_point_found_j; k < j + 1; ++k)
+					{
+						// std::cout << "x: " << P2D[0][0] << "y: " << k << " " << dist_j << std::endl;
+						img_rgb_mask.at<byte>(k, i) = 255;
+					}
+					first_mask_point_found_j = j;
+				}
+				else
+				{
+					img_rgb_mask.at<byte>(j, i) = 255;
+					first_mask_point_found_j = j;
+					mask_point_found_j = true;
+				}				
+			}
+		}
+	}
+
+#pragma endregion Custom Concave Hull Concave Hull // this should be replace by a more sophisticated CCH alforithm (e.g. https://www.codeproject.com/Articles/1201438/The-Concave-Hull-of-a-Set-of-Points)
+
+	SaveImg("final_mask_rgb.jpg", img_rgb_mask);
+
+
+	std::vector< std::vector< cv::Point> > contours;
+	std::vector<cv::Vec4i> hierarchy;
+
+	cv::findContours(img_rgb_mask, contours, hierarchy, cv::RETR_EXTERNAL, cv::CHAIN_APPROX_SIMPLE);
+	
+	//Drawing
+	for (int i = 0; i< contours.size(); i++) // iterate through each contour. 
+	{
+		cv::drawContours(img, contours, i, cv::Scalar(25, 35, 25), -1, 8, hierarchy);
+	}
+
+
+	SaveImg("final_texture.jpg", img);
+	
+	SaveImg("final_mask_d.jpg", imgd_mask);
+
+	ShowImg(img);
 
 	// ShowImg(colorized_imgd);
 	ColorizeDepth(imgd);

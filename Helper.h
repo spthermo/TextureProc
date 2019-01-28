@@ -6,6 +6,8 @@
 #include <sstream>
 #include <string>
 
+
+
 bool read_ext_file(const char* filename, std::vector< std::vector<float>>& R, std::vector<float>& T, std::vector< std::vector<float>>& cam_params)
 {
 	auto is_valid = false;
