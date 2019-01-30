@@ -34,7 +34,7 @@ EXPORT void colorizeDepth(cv::Mat imgd)
 	imgd.convertTo(adjMap, CV_8UC1, 0.15);
 	cv::applyColorMap(adjMap, colorMap, cv::COLORMAP_JET);
 	//cv::imwrite("final_depth.png", colorMap);
-	showImg(colorMap);
+	//showImg(colorMap);
 }
 
 //Receives a byte array with BGR(A) image data (1920x1080) and returns a byte array with the post-processed 
@@ -691,11 +691,8 @@ EXPORT bool artificial_hmd_placement(int device_id, const byte* imgColorData, in
 	//saveImg("final_texture.jpg", img);
 	//saveImg("final_mask_d.jpg", imgd_mask);
 	//showImg(colorized_imgd);
-	showImg(img);
+	//showImg(img);
 	colorizeDepth(imgd);
-	
-	if (alpha)
-		cv::cvtColor(img, img, CV_BGR2BGRA);
 
 	//Post-processing cv Mat to byte array
 	std::memcpy(imgDepthResData, imgd.data, imgd.total() * imgd.elemSize() * sizeof(byte));
