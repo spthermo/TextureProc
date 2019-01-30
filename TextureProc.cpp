@@ -34,7 +34,7 @@ EXPORT void colorizeDepth(cv::Mat imgd)
 	imgd.convertTo(adjMap, CV_8UC1, 0.15);
 	cv::applyColorMap(adjMap, colorMap, cv::COLORMAP_JET);
 	//cv::imwrite("final_depth.png", colorMap);
-	//showImg(colorMap);
+	showImg(colorMap);
 }
 
 //Receives a byte array with BGR(A) image data (1920x1080) and returns a byte array with the post-processed 
@@ -50,7 +50,7 @@ EXPORT bool principal_point_localization(const byte* input, int width, int heigh
 	std::vector<byte> input_image(input, input + bytesize);
 	cv::Mat img = (alpha) ? cv::Mat(height, width, CV_8UC4) : cv::Mat(height, width, CV_8UC3);	
 	std::memcpy(img.data, input_image.data(), input_image.size());
-
+	
 	std::vector<float> ptrR, ptrT;
 	std::vector<float> bbox, noise, pp;
 	std::vector<dlib::rectangle> faces;
@@ -126,28 +126,20 @@ EXPORT bool principal_point_localization(const byte* input, int width, int heigh
 
 	std::vector<cv::Rect> init_faces;
 	cv::Mat temp, temp_gray, croppedImg;
-	
 	if (alpha)
 	{
 		cv::cvtColor(img, temp, CV_BGRA2BGR);
 	}
-	else {
+	else
+	{
 		temp = img;
 	}
 
 	try
 	{
 		face_cascade.load(face_cascade_name);
-		if (alpha)
-		{
-			cv::cvtColor(temp, temp_gray, CV_BGRA2GRAY);
-		}
-		else
-		{
-			cv::cvtColor(temp, temp_gray, CV_BGR2GRAY);
-		}
+		cv::cvtColor(img, temp_gray, CV_BGRA2GRAY);
 		cv::equalizeHist(temp_gray, temp_gray);
-		//saveImg("temp_gray.png", temp_gray);
 
 		//Face detection
 		face_cascade.detectMultiScale(temp_gray, init_faces, 1.1, 2, 0 | CV_HAAR_SCALE_IMAGE, cv::Size(30, 30));
@@ -163,16 +155,19 @@ EXPORT bool principal_point_localization(const byte* input, int width, int heigh
 				{
 					cv::Point center(init_faces[i].x + init_faces[i].width*0.5, init_faces[i].y + init_faces[i].height*0.5);
 					cv::Rect rect(init_faces[i].x - 100, init_faces[i].y - 100, init_faces[i].width + 200, init_faces[i].height + 200);
-					//cv::rectangle(temp, rect, cv::Scalar(255, 0, 0));
-					croppedImg = temp(rect);
-					rect_old = rect;
-				}
-				else
-				{
-					croppedImg = temp(rect_old);
+					if (rect.x >= 0 && rect.y >= 0 && rect.width >= 0 && rect.height >= 0 && rect.width + rect.x < img.cols && rect.height + rect.y < img.rows)
+					{
+						croppedImg = temp(rect);
+						rect_old = rect;
+					}
+					else
+					{
+						log << "ROI should have non-negative values!!" << std::endl;
+						return success;
+					}
 				}
 			}
-			// showImg(croppedImg);
+
 			dlib::cv_image<dlib::bgr_pixel> cimg(croppedImg);
 
 			//Detect faces
@@ -295,12 +290,14 @@ EXPORT bool principal_point_localization(const byte* input, int width, int heigh
 			hmd_bottom[3].y = rect_old.br().y - (rect_old.width - reprojectdst[1].y);
 
 			//Drawing
+			cv::Scalar scalar = (alpha) ? cv::Scalar(255, 0 ,255, 255) : cv::Scalar(255, 0, 255);
+
 			const cv::Point* ppt[1] = { hmd_frontal };
 			fillPoly(img,
 				ppt,
 				npt,
 				1,
-				cv::Scalar(255, 0, 255),
+				scalar,
 				8);
 
 			const cv::Point* ppt2[1] = { hmd_back };
@@ -308,7 +305,7 @@ EXPORT bool principal_point_localization(const byte* input, int width, int heigh
 				ppt2,
 				npt,
 				1,
-				cv::Scalar(255, 0, 255),
+				scalar,
 				8);
 
 			const cv::Point* ppt3[1] = { hmd_left };
@@ -316,7 +313,7 @@ EXPORT bool principal_point_localization(const byte* input, int width, int heigh
 				ppt3,
 				npt,
 				1,
-				cv::Scalar(255, 0, 255),
+				scalar,
 				8);
 
 			const cv::Point* ppt4[1] = { hmd_right };
@@ -324,7 +321,7 @@ EXPORT bool principal_point_localization(const byte* input, int width, int heigh
 				ppt4,
 				npt,
 				1,
-				cv::Scalar(255, 0, 255),
+				scalar,
 				8);
 
 			const cv::Point* ppt5[1] = { hmd_top };
@@ -332,7 +329,7 @@ EXPORT bool principal_point_localization(const byte* input, int width, int heigh
 				ppt5,
 				npt,
 				1,
-				cv::Scalar(255, 0, 255),
+				scalar,
 				8);
 
 			const cv::Point* ppt6[1] = { hmd_bottom };
@@ -340,9 +337,9 @@ EXPORT bool principal_point_localization(const byte* input, int width, int heigh
 				ppt6,
 				npt,
 				1,
-				cv::Scalar(255, 0, 255),
+				scalar,
 				8);
-
+			
 			//Calculate euler angle
 			cv::Rodrigues(rotation_vec, rotation_mat);
 			cv::hconcat(rotation_mat, translation_vec, pose_mat);
@@ -412,9 +409,7 @@ EXPORT bool principal_point_localization(const byte* input, int width, int heigh
 				//std::cout << res[i] << std::endl;
 			}
 
-			if (alpha)
-				cv::cvtColor(img, img, CV_BGR2BGRA);
-
+			//showImg(img);
 			//Post-processing cv Mat to byte array
 			std::memcpy(imgResData, img.data, img.total() * img.elemSize() * sizeof(byte));
 
@@ -435,10 +430,10 @@ EXPORT bool principal_point_localization(const byte* input, int width, int heigh
 }
 
 //Receives a byte array with BGR(A) image data (1920x1080) and a byte array with depth image data. Returns two byte arrays with the generated hmd on color amd depth data.
-EXPORT bool artificial_hmd_placement(int device_id, const byte* imgColorData, const byte* imgDepthData, byte* imgDepthResData, byte* imgBGRResData, float* params, bool alpha)
+EXPORT bool artificial_hmd_placement(int device_id, const byte* imgColorData, int colorWidth, int colorHeight, const byte* imgDepthData, int depthWidth, int depthHeight, byte* imgDepthResData, byte* imgBGRResData, float* params, bool alpha)
 {
 	bool success = false;
-	uchar channel_b, channel_g, channel_r;
+	uchar channel_b, channel_g, channel_r, channel_a;
 	float depthValue;
 
 	//D10 sensor parameters
@@ -466,27 +461,26 @@ EXPORT bool artificial_hmd_placement(int device_id, const byte* imgColorData, co
 	float cy_rgb = cam_params[1][3];
 
 	//Byte array to cv Mat - BGR
-	auto bytesize = (alpha) ? 4 * 1080 * 1920 : 3 * 1080 * 1920;
+	auto bytesize = (alpha) ? 4 * colorHeight * colorWidth : 3 * colorHeight * colorWidth;
 
 	std::vector<byte> input_img(imgColorData, imgColorData + bytesize);
-	cv::Mat img = (alpha) ? cv::Mat::zeros(1080, 1920, CV_8UC4) : cv::Mat::zeros(1080, 1920, CV_8UC3);
+	cv::Mat img = (alpha) ? cv::Mat::zeros(colorHeight, colorWidth, CV_8UC4) : cv::Mat::zeros(colorHeight, colorWidth, CV_8UC3);
 	std::memcpy(img.data, input_img.data(), input_img.size());
-	if (alpha)
-		cv::cvtColor(img, img, CV_BGRA2BGR);
 
 	//Byte array to cv Mat - Depthmap
-	auto d_bytesize = 2 * 424 * 512;
+	auto d_bytesize = 2 * 424 * depthWidth;
 	std::vector<byte> input_imgd(imgDepthData, imgDepthData + d_bytesize);
-	cv::Mat imgd = cv::Mat::zeros(424, 512, CV_16U);
-	cv::Mat imgd_rgb = cv::Mat::zeros(424, 512, CV_8UC3);
+	cv::Mat imgd = cv::Mat::zeros(depthHeight, depthWidth, CV_16U);
+	cv::Mat imgd_rgb = cv::Mat::zeros(depthHeight, depthWidth, CV_8UC3);
 	std::memcpy(imgd.data, input_imgd.data(), input_imgd.size());
 
 	//For visualization purposes
-	cv::Mat colorized_imgd = cv::Mat::zeros(424, 512, CV_8UC3);
+	cv::Mat colorized_imgd = cv::Mat::zeros(depthHeight, depthWidth, CV_8UC3);
 
-	cv::Vec3b ColorValue;
+	cv::Vec4b ColorValue_bgra;
+	cv::Vec3b ColorValue_bgr;
 
-
+	cv::imwrite("test_color.png", img);
 	cv::imwrite("depth_original.png", imgd);
 
 	std::vector<ushort> box_depthvalues;
@@ -515,26 +509,25 @@ EXPORT bool artificial_hmd_placement(int device_id, const byte* imgColorData, co
 				P2D[0][0] = (int)(P3D_new[0][0] * fx_rgb) / P3D_new[2][0] + cx_rgb;
 				P2D[1][0] = (int)(P3D_new[1][0] * fy_rgb) / P3D_new[2][0] + cy_rgb;
 
-				if (P2D[0][0] > 0 && P2D[0][0] < 1920 && P2D[1][0] > 0 && P2D[1][0] < 1080)
+				if (P2D[0][0] > 0 && P2D[0][0] < colorWidth && P2D[1][0] > 0 && P2D[1][0] < colorHeight)
 				{
-					ColorValue = img.at<cv::Vec3b>(P2D[1][0], P2D[0][0]);
-					channel_b = ColorValue.val[0];
-					channel_g = ColorValue.val[1];
-					channel_r = ColorValue.val[2];
+					if (alpha)
+					{
+						ColorValue_bgra = img.at<cv::Vec4b>(P2D[1][0], P2D[0][0]);
+						channel_b = ColorValue_bgra.val[0];
+						channel_g = ColorValue_bgra.val[1];
+						channel_r = ColorValue_bgra.val[2];
+						channel_a = ColorValue_bgra.val[3];
+					}
+					else
+					{
+						ColorValue_bgr = img.at<cv::Vec3b>(P2D[1][0], P2D[0][0]);
+						channel_b = ColorValue_bgr.val[0];
+						channel_g = ColorValue_bgr.val[1];
+						channel_r = ColorValue_bgr.val[2];
+					}
 
-					cv::Vec3b &SetColorValue = colorized_imgd.at<cv::Vec3b>(j, i);
-					SetColorValue.val[0] = channel_b;
-					SetColorValue.val[1] = channel_g;
-					SetColorValue.val[2] = channel_r;
-
-					//The serialized vector contains (64 elements)
-					//[0-2] rotation 
-					//[3-5] translation
-					//[6-15] face bbox 
-					//[16-61] noise (hmd) box on the original image [front]->[back]->[left]->[right]->[top]->[bottom]
-					//[62-63] principal point (x,y)
-
-					//Set the HMD pixels to zero depth
+					//Map principal point from BGR(A) to depth
 					if (channel_b == 255 && channel_g == 0 && channel_r == 255)
 					{
 						imgd.at<ushort>(j, i) = 65000;
@@ -577,28 +570,22 @@ EXPORT bool artificial_hmd_placement(int device_id, const byte* imgColorData, co
 				Construction3D.push_back(cv::Point3d(x, y, z));
 			}
 
-	//std::cout << Construction3D.size() << std::endl;
-
 	rotate(params[1], params[2], params[0], Construction3D);
-
-	// std::cout << "p.y.r.: " << params[0] << " " << params[1] << " " << params[2] << "\n";
-	// std::cout << "c.p.: " << central_3d_point.x << " " << central_3d_point.y << " " << central_3d_point.z << "\n";
 
 	auto cp_dp_x = (int)(central_3d_point.x * fx_d) / central_3d_point.z + cx_d;
 	auto cp_dp_y = (int)(central_3d_point.y * fy_d) / central_3d_point.z + cy_d;
 
 	// Masked image and 2.5D data
-	cv::Mat imgd_mask = cv::Mat::zeros(424, 512, CV_8U);
+	cv::Mat imgd_mask = cv::Mat::zeros(depthHeight, depthWidth, CV_8U);
 	std::vector<cv::Point3d> masked_points;
 
 	for (auto i = 0; i < Construction3D.size(); ++i) {
 		Construction3D[i] += central_3d_point;
-		//std::cout << Construction3D[i].x << " " << Construction3D[i].y << " " << Construction3D[i].z << "\n";
 
 		auto dp_x = (int)(Construction3D[i].x * fx_d) / Construction3D[i].z + cx_d;
 		auto dp_y = (int)(Construction3D[i].y * fy_d) / Construction3D[i].z + cy_d;
 
-		if (dp_x > 0 && dp_x < 512 && dp_y > 0 && dp_y < 424) {
+		if (dp_x > 0 && dp_x < depthWidth && dp_y > 0 && dp_y < depthHeight) {
 			if (imgd.at<ushort>(dp_y, dp_x) > Construction3D[i].z || imgd.at<ushort>(dp_y, dp_x) < 50)
 			{
 				masked_points.push_back(cv::Point3d(dp_x, dp_y, Construction3D[i].z));
@@ -610,7 +597,7 @@ EXPORT bool artificial_hmd_placement(int device_id, const byte* imgColorData, co
 
 	//showImg(imgd_mask);
 	std::vector<cv::Point> mask_points, conv_hull;
-	cv::Mat img_rgb_mask = cv::Mat::zeros(1080, 1920, CV_8U);
+	cv::Mat img_rgb_mask = cv::Mat::zeros(colorHeight, colorWidth, CV_8U);
 
 #pragma region Custom Concave Hull
 	for (int j = 0; j < imgd_mask.rows; j++)
@@ -635,7 +622,7 @@ EXPORT bool artificial_hmd_placement(int device_id, const byte* imgColorData, co
 				P2D[0][0] = (int)(P3D_new[0][0] * fx_rgb) / P3D_new[2][0] + cx_rgb;
 				P2D[1][0] = (int)(P3D_new[1][0] * fy_rgb) / P3D_new[2][0] + cy_rgb;
 
-				if (P2D[0][0] > 0 && P2D[0][0] < 1920 && P2D[1][0] > 0 && P2D[1][0] < 1080)
+				if (P2D[0][0] > 0 && P2D[0][0] < colorWidth && P2D[1][0] > 0 && P2D[1][0] < colorHeight)
 				{
 					auto dist_i = P2D[0][0] - first_mask_point_found_i;
 
@@ -643,7 +630,6 @@ EXPORT bool artificial_hmd_placement(int device_id, const byte* imgColorData, co
 					{
 						for (int k = first_mask_point_found_i; k < P2D[0][0] + 1; ++k)
 						{
-							// std::cout << k << " " << abs_dist_i  << std::endl;
 							img_rgb_mask.at<byte>(P2D[1][0], k) = 255;
 						}
 						first_mask_point_found_i = P2D[0][0];
@@ -675,7 +661,6 @@ EXPORT bool artificial_hmd_placement(int device_id, const byte* imgColorData, co
 				{
 					for (int k = first_mask_point_found_j; k < j + 1; ++k)
 					{
-						// std::cout << "x: " << P2D[0][0] << "y: " << k << " " << dist_j << std::endl;
 						img_rgb_mask.at<byte>(k, i) = 255;
 					}
 					first_mask_point_found_j = j;
@@ -692,8 +677,6 @@ EXPORT bool artificial_hmd_placement(int device_id, const byte* imgColorData, co
 
 #pragma endregion Custom Concave Hull Concave Hull // this should be replace by a more sophisticated CCH alforithm (e.g. https://www.codeproject.com/Articles/1201438/The-Concave-Hull-of-a-Set-of-Points)
 
-	//saveImg("final_mask_rgb.jpg", img_rgb_mask);
-
 	std::vector< std::vector< cv::Point> > contours;
 	std::vector<cv::Vec4i> hierarchy;
 
@@ -707,8 +690,8 @@ EXPORT bool artificial_hmd_placement(int device_id, const byte* imgColorData, co
 
 	//saveImg("final_texture.jpg", img);
 	//saveImg("final_mask_d.jpg", imgd_mask);
-	//showImg(img);
 	//showImg(colorized_imgd);
+	showImg(img);
 	colorizeDepth(imgd);
 	
 	if (alpha)

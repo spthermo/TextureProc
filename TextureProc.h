@@ -30,7 +30,7 @@ extern "C"
 	EXPORT bool principal_point_localization(const byte* imgData, int width, int height, byte* imgResData, float* res, int size, bool alpha);
 
 	//Receives a byte array with BGR(A) image data (1920x1080) and a byte array with depth image data. Returns two byte arrays with the generated hmd on color amd depth data.
-	EXPORT bool artificial_hmd_placement(int device_id, const byte* imgColorData, const byte* imgDepthData, byte* imgDepthResData, byte* imgBGRResData, float* params, bool alpha);
+	EXPORT bool artificial_hmd_placement(int device_id, const byte* imgColorData, int colorWidth, int colorHeight, const byte* imgDepthData, int depthWidth, int depthHeight, byte* imgDepthResData, byte* imgBGRResData, float* params, bool alpha);
 
 	//Displays the post-processed BGR(A) image (mostly used for debugging)
 	EXPORT void showImg(cv::Mat img);
