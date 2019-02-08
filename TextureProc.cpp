@@ -102,14 +102,14 @@ EXPORT bool principal_point_localization(const byte* input, int width, int heigh
 	//Reproject 3D points world coordinate axis to verify result pose
 	std::vector<cv::Point3d> reprojectsrc;
 
-	reprojectsrc.push_back(cv::Point3d(0.5, 7.5, 7.0));
-	reprojectsrc.push_back(cv::Point3d(0.5, 7.5, 6.0));
-	reprojectsrc.push_back(cv::Point3d(0.5, 6.5, 6.0));
-	reprojectsrc.push_back(cv::Point3d(0.5, 6.5, 7.0));
-	reprojectsrc.push_back(cv::Point3d(-0.5, 7.5, 7.0));
-	reprojectsrc.push_back(cv::Point3d(-0.5, 7.5, 6.0));
-	reprojectsrc.push_back(cv::Point3d(-0.5, 6.5, 6.0));
-	reprojectsrc.push_back(cv::Point3d(-0.5, 6.5, 7.0));
+	reprojectsrc.push_back(cv::Point3d(0.5, 7.0, 6.0));
+	reprojectsrc.push_back(cv::Point3d(0.5, 7.0, 5.0));
+	reprojectsrc.push_back(cv::Point3d(0.5, 6.0, 5.0));
+	reprojectsrc.push_back(cv::Point3d(0.5, 6.0, 6.0));
+	reprojectsrc.push_back(cv::Point3d(-0.5, 7.0, 6.0));
+	reprojectsrc.push_back(cv::Point3d(-0.5, 7.0, 5.0));
+	reprojectsrc.push_back(cv::Point3d(-0.5, 6.0, 5.0));
+	reprojectsrc.push_back(cv::Point3d(-0.5, 6.0, 6.0));
 
 	//Reprojected 2D points
 	std::vector<cv::Point2d> reprojectdst;
@@ -561,7 +561,7 @@ EXPORT bool artificial_hmd_placement(int device_id, const byte* imgColorData, in
 
 	Construction3D.clear();
 
-	float width = 75, height = 50, depth = 45;
+	float width = 65, height = 45, depth = 45;
 
 	for (int x = -width; x < width; ++x)
 		for (int y = -height; y < height; ++y)

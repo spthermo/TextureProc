@@ -127,6 +127,9 @@ StyleCopReport.xml
 *.svclog
 *.scc
 
+# Files used by Visual Studio
+*.props
+
 # Chutzpah Test files
 _Chutzpah*
 
