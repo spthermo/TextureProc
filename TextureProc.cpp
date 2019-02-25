@@ -148,32 +148,38 @@ EXPORT bool principal_point_localization(const byte* input, int width, int heigh
 			log << "No face detected!!" << std::endl;
 			return success;
 		}
-		else {
-			for (size_t i = 0; i < init_faces.size(); i++)
+		else if (init_faces.size() == 1) 
+		{
+			if (init_faces[0].width > 50 && init_faces[0].width < 250)
 			{
-				if (init_faces[i].width > 50 && init_faces[i].width < 250)
+				cv::Point center(init_faces[0].x + init_faces[0].width*0.5, init_faces[0].y + init_faces[0].height*0.5);
+				cv::Rect rect(init_faces[0].x - 100, init_faces[0].y - 100, init_faces[0].width + 200, init_faces[0].height + 200);
+				if (rect.x >= 0 && rect.y >= 0 && rect.width >= 0 && rect.height >= 0 && rect.width + rect.x < img.cols && rect.height + rect.y < img.rows)
 				{
-					cv::Point center(init_faces[i].x + init_faces[i].width*0.5, init_faces[i].y + init_faces[i].height*0.5);
-					cv::Rect rect(init_faces[i].x - 100, init_faces[i].y - 100, init_faces[i].width + 200, init_faces[i].height + 200);
-					if (rect.x >= 0 && rect.y >= 0 && rect.width >= 0 && rect.height >= 0 && rect.width + rect.x < img.cols && rect.height + rect.y < img.rows)
-					{
-						croppedImg = temp(rect);
-						rect_old = rect;
-					}
-					else
-					{
-						log << "ROI should have non-negative values!!" << std::endl;
-						return success;
-					}
+					croppedImg = temp(rect);
+					rect_old = rect;
 				}
+				else
+				{
+					log << "ROI should have non-negative values!!" << std::endl;
+					return success;
+				}
+			}
+			else 
+			{
+				log << "Face size not compatible!!" << std::endl;
+				return success;
 			}
 
 			dlib::cv_image<dlib::bgr_pixel> cimg(croppedImg);
 
 			//Detect faces
 			faces = detector(cimg);
-			if (faces.size() < 1)
+			if (faces.size() != 1)
+			{
+				log << "DLIB detector could not fit on detected face!!" << std::endl;
 				return success;
+			}
 
 			//Track features
 			dlib::full_object_detection shape = predictor(cimg, faces[0]);
@@ -417,6 +423,11 @@ EXPORT bool principal_point_localization(const byte* input, int width, int heigh
 			success = true;
 			log.close();
 
+			return success;
+		}
+		else 
+		{
+			log << "Multiple faces detected!!" << std::endl;
 			return success;
 		}
 	}
